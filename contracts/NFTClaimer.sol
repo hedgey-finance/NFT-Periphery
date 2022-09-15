@@ -28,9 +28,18 @@ contract NFTClaimer is ReentrancyGuard {
   mapping(uint256 => mapping(address => bool)) public claimed;
 
   /// events
-  event BatchCreated(uint id, address admin, address token, uint totalAmount, uint tokensPerNFT, uint unlockDate, address nftLocker, address tokenGate);
-  event Claimed(uint id, address claimer, uint amountRemaining);
-  event BatchCancelled(uint id);
+  event BatchCreated(
+    uint256 id,
+    address admin,
+    address token,
+    uint256 totalAmount,
+    uint256 tokensPerNFT,
+    uint256 unlockDate,
+    address nftLocker,
+    address tokenGate
+  );
+  event Claimed(uint256 id, address claimer, uint256 amountRemaining);
+  event BatchCancelled(uint256 id);
 
   /// @notice function to create a batch
   function createBatch(
