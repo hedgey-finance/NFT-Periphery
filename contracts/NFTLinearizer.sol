@@ -16,16 +16,13 @@ contract NFTLinearizer {
   uint256 constant MONTH = 648000; // approx 30 days assuming 4 seconds per block - 60 * 60 * 24 * 30 / 4
   address public nft;
   uint8 public periods;
-  string name;
 
   constructor(
     address _nft,
     uint8 _periods,
-    string memory _name
   ) {
     nft = _nft;
     periods = _periods;
-    name = _name;
   }
 
   // this is called to this contract for the NFT Locking mechanism
