@@ -19,7 +19,7 @@ contract NFTLinearizer {
 
   constructor(
     address _nft,
-    uint8 _periods,
+    uint8 _periods
   ) {
     nft = _nft;
     periods = _periods;
