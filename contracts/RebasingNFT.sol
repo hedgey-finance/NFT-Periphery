@@ -40,6 +40,11 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
   /// @dev this maping maps the _tokenIDs from Counters to a Future struct. the same _tokenIDs that is set for the NFT id is mapped to the futures
   mapping(uint256 => Future) public futures;
 
+  /// @dev mapping as an easy way to store the total shares owned by an individual address accross multiple nfts
+  /// useful for voting mechanisms. 
+  /// maps from holder address to token address, to total shares owned
+  mapping(address => mapping(address => uint256)) public holderTokenShares;
+
   ///@notice Events when a new NFT (future) is created and one with a Future is redeemed (burned)
   event NFTCreated(uint256 id, address holder, uint256 amount, uint256 shares, address token, uint256 unlockDate);
   event NFTRedeemed(uint256 id, address holder, uint256 amount, uint256 shares, address token, uint256 unlockDate);
@@ -75,6 +80,7 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
     totalShares[token] = _totalShares;
     futures[newItemId] = Future(sharesIssued, token, unlockDate);
     _safeMint(holder, newItemId);
+    holderTokenShares[msg.sender][token] += sharesIssued;
     emit NFTCreated(newItemId, holder, amount, sharesIssued, token, unlockDate);
     return newItemId;
   }
@@ -130,6 +136,8 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
     uint256 balance = getBalanceFromShares(future.shares, future.token);
     /// @dev reduce the total share count by the shares in the future
     totalShares[future.token] -= future.shares;
+    /// @dev reduce the view function of the users total shares
+    holderTokenShares[_holder][future.token] -= future.shares;
     /// @dev emit an event of the redemption, the id of the NFt and details of the future (locked tokens)  - needs to happen before we delete the future struct and burn the NFT
     emit NFTRedeemed(_id, _holder, balance, future.shares, future.token, future.unlockDate);
     /// @dev burn the NFT
@@ -144,5 +152,10 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
     uint256 tokenBalance = IERC20(token).balanceOf(address(this));
     uint256 _totalShares = totalShares[token];
     balance = (tokenBalance * ((shares * 1e19)/ _totalShares)) / 10e18;
+  }
+
+  function totalBalanceOf(address holder, address token) public view returns (uint256 balance) {
+    uint256 shares = holderTokenShares[holder][token];
+    balance = getBalanceFromShares(shares, token);
   }
 }
