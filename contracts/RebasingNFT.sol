@@ -19,12 +19,10 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIds;
 
-  /// @dev handles weth in case WETH is being held - this allows us to unwrap and deliver ETH upon redemption of a timelocked NFT with ETH
-  address payable public weth;
   /// @dev baseURI is the URI directory where the metadata is stored
   string private baseURI;
-  /// @dev this is a counter used so that the baseURI can only be set once after deployment
-  uint8 private uriSet = 0;
+  /// @dev admin for setting the baseURI;
+  address private admin;
 
   /// @dev the Future is the storage in a struct of the tokens that are time locked
   /// @dev the Future contains the information about the amount of tokens, the underlying token address (asset), and the date in which they are unlocked
@@ -50,12 +48,9 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
   event NFTRedeemed(uint256 id, address holder, uint256 amount, uint256 shares, address token, uint256 unlockDate);
   event URISet(string newURI);
 
-  constructor(address payable _weth, string memory uri) ERC721('Rebasing_Hedgeys', 'RBHD') {
-    weth = _weth;
-    baseURI = uri;
+  constructor(string memory name, string memory symbol) ERC721(name, symbol) {
+    admin = msg.sender;
   }
-
-  receive() external payable {}
 
   function createNFT(
     address holder,
@@ -92,15 +87,14 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
 
   /// @notice function to set the base URI after the contract has been launched, only once - this is done by the admin
   /// @notice there is no actual on-chain functions that require this URI to be anything beyond a blank string ("")
-  /// @param _uri is the
+  /// @param _uri is the new baseURI for the metadata
   function updateBaseURI(string memory _uri) external {
-    /// @dev this function can only be called once - when the public variable uriSet is set to 0
-    require(uriSet == 0, 'NFT02');
+    /// @dev this function can only be called by the admin
+    require(msg.sender == admin, 'NFT02');
     /// @dev update the baseURI with the new _uri
     baseURI = _uri;
-    /// @dev set the public variable uriSet to 1 so that this function cannot be called anymore
-    /// @dev cheaper to use uint8 than bool for this admin safety feature
-    uriSet = 1;
+    /// @dev delete the admin
+    delete admin;
     /// @dev emit event of the update uri
     emit URISet(_uri);
   }
@@ -110,7 +104,7 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
   /// @dev this function calls the _redeemFuture(...) internal function which handles the requirements and checks
   function redeemNFT(uint256 _id) external nonReentrant returns (bool) {
     /// @dev calls the internal _redeemNFT function that performs various checks to ensure that only the owner of the NFT can redeem their NFT and Future position
-    _redeemNFT(payable(msg.sender), _id);
+    _redeemNFT(msg.sender, _id);
     return true;
   }
 
@@ -124,7 +118,7 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
    * @param _holder is the owner of the NFT calling the function
    * @param _id is the unique id of the NFT and unique id of the Future struct
    */
-  function _redeemNFT(address payable _holder, uint256 _id) internal {
+  function _redeemNFT(address _holder, uint256 _id) internal {
     /// @dev ensure that only the owner of the NFT can call this function
     require(ownerOf(_id) == _holder, 'NFT03');
     /// @dev pull the future data from storage and keep in memory to check requirements and disribute tokens
@@ -145,7 +139,7 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
     /// @dev delete the futures struct so that the owner cannot call this function again
     delete futures[_id];
     /// @dev physically deliver the tokens to the NFT owner
-    TransferHelper.withdrawPayment(weth, future.token, _holder, balance);
+    TransferHelper.withdrawTokens(future.token, _holder, balance);
   }
 
   function getBalanceFromShares(uint256 shares, address token) public view returns (uint256 balance) {
@@ -154,7 +148,7 @@ contract Rebase_Hedgeys is ERC721Enumerable, ReentrancyGuard {
     balance = (tokenBalance * ((shares * 1e19)/ _totalShares)) / 10e18;
   }
 
-  function totalBalanceOf(address holder, address token) public view returns (uint256 balance) {
+  function tokenBalanceOf(address holder, address token) public view returns (uint256 balance) {
     uint256 shares = holderTokenShares[holder][token];
     balance = getBalanceFromShares(shares, token);
   }
